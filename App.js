@@ -89,8 +89,7 @@ export default function App() {
   // TODO 관리 - 삭제
   const deleteToDo = (key) => {
     if (Platform.OS === "web") {
-      const ok = confirm("Do you Want to delete this To Do?");
-      if (ok) {
+      if (confirm("Do you Want to delete this To Do?")) {
         const newToDos = { ...toDos };
         delete newToDos[key];
         setToDos(newToDos);
