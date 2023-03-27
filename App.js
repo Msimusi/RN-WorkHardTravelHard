@@ -13,6 +13,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "./colors";
 import { Fontisto } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const STORAGE_KEY_TODO = "@todos";
 const STORAGE_KEY_WORKING = "@working";
@@ -22,38 +23,40 @@ export default function App() {
   const [text, setText] = useState("");
   const [toDos, setToDos] = useState({});
   const [loading, setLoading] = useState(true);
+  const [editingText, setEditingText] = useState("");
+
+  const complete = false;
+  const editing = false;
+
   useEffect(() => {
     loadToDos();
-    // loadWorking();
+    loadWorking();
   }, []);
 
-  // useEffect(() => {
-  //   console.log(toDos);
-  // }, [toDos]);
+  const saveWorking = async (status) => {
+    await AsyncStorage.setItem(STORAGE_KEY_WORKING, String(status));
+  };
 
-  // const saveWorking = async (status) => {
-  //   await AsyncStorage.setItem(STORAGE_KEY_WORKING, String(status));
-  // };
+  const loadWorking = async () => {
+    const status = await AsyncStorage.getItem(STORAGE_KEY_WORKING);
+    setWorking(Boolean(status));
+  };
 
-  // const loadWorking = async () => {
-  //   const status = await AsyncStorage.getItem(STORAGE_KEY_WORKING);
-  //   setWorking(Boolean(status));
-  // };
+  const work = () => {
+    setWorking(true);
+    saveWorking(true);
+  };
 
   const travel = () => {
     setWorking(false);
-    // saveWorking(false);
+    saveWorking(false);
   };
-  const work = () => {
-    setWorking(true);
-    // saveWorking(true);
-  };
+
   const onChangeText = (payload) => setText(payload);
 
   // TODO 관리 - 로컬에 저장
   const saveToDos = async (toSave) => {
     await AsyncStorage.setItem(STORAGE_KEY_TODO, JSON.stringify(toSave));
-    console.log(JSON.stringify(toSave));
   };
 
   // TODO 관리 - 로컬에서 불러오기
@@ -68,11 +71,14 @@ export default function App() {
   };
 
   // TODO 관리 - 추가
-  const addTodo = () => {
+  const addToDo = () => {
     if (text === "") {
       return;
     }
-    const newToDos = { ...toDos, [Date.now()]: { text, working } };
+    const newToDos = {
+      ...toDos,
+      [Date.now()]: { text, working, complete, editing },
+    };
 
     setToDos(newToDos);
     saveToDos(newToDos);
@@ -80,7 +86,7 @@ export default function App() {
   };
 
   // TODO 관리 - 삭제
-  const deleteTodo = (key) => {
+  const deleteToDo = (key) => {
     Alert.alert("Delete To Do?", "Are you sure?", [
       { text: "Cancle" },
       {
@@ -96,20 +102,66 @@ export default function App() {
     return;
   };
 
+  // TODO 관리 - 완료처리
+  const completeTodo = (key) => {
+    const newToDos = { ...toDos };
+
+    newToDos[key].complete === true
+      ? (newToDos[key].complete = false)
+      : (newToDos[key].complete = true);
+
+    setToDos(newToDos);
+    saveToDos(newToDos);
+  };
+
+  // TODO관리 - 수정모드 ON
+  const editToDo = (selectedKey) => {
+    const newToDos = { ...toDos };
+
+    setEditingText("");
+    Object.keys(newToDos).map((key) => {
+      key === selectedKey
+        ? (newToDos[key].editing = true)
+        : (newToDos[key].editing = false);
+    });
+    setToDos(newToDos);
+    saveToDos(newToDos);
+  };
+
+  const onEditText = (payload) => setEditingText(payload);
+  const editComplete = (key, done) => {
+    const newToDos = { ...toDos };
+
+    newToDos[key].editing = false;
+    if (done) {
+      newToDos[key].text = editingText;
+    }
+
+    setToDos(newToDos);
+    saveToDos(newToDos);
+    setEditingText("");
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
       <View style={styles.header}>
         <TouchableOpacity onPress={work}>
           <Text
-            style={{ ...styles.btnText, color: working ? "white" : theme.grey }}
+            style={{
+              ...styles.btnText,
+              color: working ? "white" : theme.grey,
+            }}
           >
             Work
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={travel}>
           <Text
-            style={{ ...styles.btnText, color: working ? theme.grey : "white" }}
+            style={{
+              ...styles.btnText,
+              color: working ? theme.grey : "white",
+            }}
           >
             Travel
           </Text>
@@ -120,7 +172,7 @@ export default function App() {
         value={text}
         returnKeyType="done"
         onChangeText={onChangeText}
-        onSubmitEditing={addTodo}
+        onSubmitEditing={addToDo}
         placeholder={working ? "Add a To-Do" : "Where do you wanna Go?"}
         style={styles.input}
       />
@@ -138,12 +190,61 @@ export default function App() {
         <ScrollView>
           {Object.keys(toDos).map((key) =>
             toDos[key].working == working ? (
-              <View style={styles.toDo} key={key}>
-                <Text style={styles.toDoText}>{toDos[key].text}</Text>
-                <TouchableOpacity onPress={() => deleteTodo(key)}>
+              <TouchableOpacity
+                style={
+                  toDos[key].complete === true
+                    ? {
+                        ...styles.toDo,
+                        backgroundColor: "#212121",
+                      }
+                    : styles.toDo
+                }
+                key={key}
+                onLongPress={() => editToDo(key)}
+                onPress={() => completeTodo(key)}
+              >
+                {toDos[key].editing === true ? (
+                  <View style={styles.editingToDo}>
+                    <TextInput
+                      value={editingText}
+                      returnKeyType="done"
+                      onChangeText={onEditText}
+                      onSubmitEditing={() => editComplete(key, true)}
+                      style={styles.editInput}
+                    ></TextInput>
+                    <TouchableOpacity
+                      style={{ position: "absolute", right: 25 }}
+                      onPress={() => editComplete(key, false)}
+                    >
+                      <MaterialCommunityIcons
+                        name="cancel"
+                        size={24}
+                        color="grey"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text
+                    style={
+                      toDos[key].complete === true
+                        ? {
+                            ...styles.toDoText,
+                            color: theme.grey,
+                            textDecorationLine: "line-through",
+                          }
+                        : styles.toDoText
+                    }
+                  >
+                    {toDos[key].text}
+                  </Text>
+                )}
+                <TouchableOpacity
+                  style={styles.delete}
+                  onPress={() => deleteToDo(key)}
+                >
                   <Fontisto name="trash" size={18} color="grey" />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ) : null
           )}
         </ScrollView>
@@ -168,7 +269,7 @@ const styles = StyleSheet.create({
   btnText: {
     fontSize: 44,
     fontWeight: 600,
-    color: "white",
+    color: "inherit",
   },
   input: {
     backgroundColor: "white",
@@ -188,6 +289,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 15,
   },
-  toDoText: { color: "white", fontSize: 16, fontWeight: "500" },
+  toDoText: { width: "93%", color: "white", fontSize: 16, fontWeight: "500" },
   loading: { color: "white", fontSize: 16, fontWeight: 500 },
+  editInput: {
+    backgroundColor: "white",
+    width: "96%",
+    paddingVertical: 10,
+    paddingLeft: 10,
+    paddingRight: 35,
+    borderRadius: 12,
+    fontSize: 12,
+    marginVertical: -10,
+    marginLeft: -5,
+  },
+  delete: { alignItems: "center", width: "5%" },
+  editingToDo: { flex: 1, flexDirection: "row", position: "relative" },
 });
