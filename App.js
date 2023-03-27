@@ -144,6 +144,7 @@ export default function App() {
     const newToDos = { ...toDos };
 
     newToDos[key].editing = false;
+    newToDos[key].complete = false;
     if (done) {
       newToDos[key].text = editingText;
     }
@@ -314,5 +315,10 @@ const styles = StyleSheet.create({
     marginLeft: -5,
   },
   delete: { alignItems: "center", width: "5%" },
-  editingToDo: { flex: 1, flexDirection: "row", position: "relative" },
+  editingToDo: {
+    flex: 1,
+    flexDirection: "row",
+    position: "relative",
+    alignItems: "center",
+  },
 });
